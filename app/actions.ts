@@ -1,54 +1,56 @@
-'use server';
+"use server";
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-export async function parseInvoiceFile(formData: FormData) {
+export async function parseInvoice(base64Image: string, mimeType: string) {
   try {
-    const file = formData.get('file') as File;
-    if (!file) {
-      throw new Error('No document provided.');
-    }
+    const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, "");
 
-    const arrayBuffer = await file.arrayBuffer();
-    const base64Data = Buffer.from(arrayBuffer).toString('base64');
-
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.8-flash' });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    });
 
     const prompt = `
-      You are an expert invoice and receipt scanner. Extract transaction details from this file.
-      Return ONLY a clean JSON object (no markdown, no backticks, no extra text) with these exact keys:
-      {
-        "vendor_name": "Merchant or supplier name",
-        "invoice_number": "Invoice or bill ID if present, otherwise 'N/A'",
-        "date": "YYYY-MM-DD or date listed",
-        "currency": "Currency symbol or code (e.g. ₹, $, INR, USD)",
-        "subtotal": 0.00,
-        "tax_amount": 0.00,
-        "total_amount": 0.00,
-        "category": "Meals, Travel, Software, Utilities, Retail, etc."
-      }
-    `;
+Extract all receipt or invoice data from this document into clean JSON matching this structure:
+{
+  "vendor": "Store or Vendor name",
+  "date": "YYYY-MM-DD or readable date",
+  "invoiceNumber": "Invoice/Bill ID or empty string",
+  "tax": "Total tax/GST amount or 0",
+  "total": "Final total amount",
+  "items": [
+    {
+      "description": "Item or product name",
+      "quantity": "Quantity or 1",
+      "unitPrice": "Price per item",
+      "totalPrice": "Total price for this item"
+    }
+  ]
+}
+If any field is missing on the receipt, supply an empty string or 0. Return only valid JSON.
+`;
 
     const result = await model.generateContent([
-      prompt,
       {
         inlineData: {
-          data: base64Data,
-          mimeType: file.type || 'image/jpeg',
+          data: cleanBase64,
+          mimeType: mimeType || "image/jpeg",
         },
       },
+      prompt,
     ]);
 
-    let rawText = result.response.text().trim();
-    // Strip markdown formatting if the model wraps in ```json
-    rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
+    const text = result.response.text();
+    const parsedData = JSON.parse(text);
 
-    const data = JSON.parse(rawText);
-    return { success: true, data };
+    return { success: true, data: parsedData };
   } catch (error: any) {
-    console.error('Invoice parse error:', error);
-    return { success: false, error: error.message || 'Failed to parse invoice' };
+    console.error("Gemini parse error:", error);
+    return { success: false, error: error?.message || "Failed to parse document" };
   }
 }
