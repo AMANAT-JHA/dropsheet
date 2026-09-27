@@ -3,8 +3,14 @@ import Razorpay from "razorpay";
 
 export async function POST() {
   try {
-    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
-    const key_secret = process.env.RAZORPAY_KEY_SECRET || "";
+    const key_id =
+      process.env.RAZORPAY_KEY_ID?.trim() ||
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() ||
+      "rzp_test_TgluXRA1Mirk5O";
+
+    const key_secret =
+      process.env.RAZORPAY_KEY_SECRET?.trim() ||
+      "H57GHEssURGUNFBYFYoZiz4d";
 
     const razorpay = new Razorpay({
       key_id,

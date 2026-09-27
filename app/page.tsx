@@ -33,9 +33,10 @@ const handleBuyScans = async () => {
         throw new Error(orderData.error || "Failed to create order");
       }
 
+      const activeKey = orderData.keyId || "rzp_test_TgluXRA1Mirk5O";
+
       const options = {
-        key: "rzp_test_TgluXRA1Mirk5O",
-        key_id: "rzp_test_TgluXRA1Mirk5O",
+        key: activeKey,
         amount: orderData.order.amount,
         currency: orderData.order.currency,
         name: "DropSheet",
